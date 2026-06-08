@@ -2,85 +2,90 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/utils/supabase';
 
-export default function Home() {
-  const [categories, setCategories] = useState([]);
-  const [services, setServices] = useState([]);
+export default function AdvancedLandPortal() {
+  const [activeTab, setActiveTab] = useState("services"); // services, revenue, workflow
   const [selectedMain, setSelectedMain] = useState(null);
   const [selectedSub, setSelectedSub] = useState(null);
-  const [docs, setDocs] = useState([]);
-  const [userType, setUserType] = useState("personal");
+  const [userPradesh, setUserPradesh] = useState("");
 
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
+  // १. सेवा र कागजात सेक्सन (तपाईंको बुँदा १-६)
+  const renderServiceDetail = () => (
+    <div style={detailBox}>
+      <button onClick={() => {setSelectedMain(null); setSelectedSub(null);}} style={backBtn}>← पछाडि</button>
+      <h2 style={{color: '#003366'}}>{selectedSub?.name}</h2>
+      
+      {/* कागजात सेक्सन (बुँदा ३, ४, ५) */}
+      <section style={sectionStyle}>
+        <h4 style={subHeadingStyle}>आवश्यक कागजातहरू</h4>
+        <div style={docListStyle}>
+          {/* यहाँ डाटाबेसबाट आएका 'group_name' अनुसार कागजातहरू फिल्टर भएर देखिनेछन् */}
+          <div style={docItem} title="म्याद ३५ दिन">📄 घरबाटो सिफारिस <small>(i)</small></div>
+        </div>
+        
+        <h4 style={subHeadingStyle}>वारेशनामाबाट बिक्री गर्ने भएमा (थप)</h4>
+        <div style={docListStyle}>
+          <div style={docItem} onClick={() => alert('अदालत वा राजदुतावासको प्रमाणित...')}>📄 अधिकृत वारेशनामा</div>
+        </div>
+      </section>
 
-  const fetchInitialData = async () => {
-    const { data: catData } = await supabase.from('categories').select('*');
-    setCategories(catData || []);
-  };
+      {/* ध्यान दिनुपर्ने कुराहरू (बुँदा ६) */}
+      <section style={cautionStyle}>
+        <h4 style={{color: '#d9534f'}}>⚠️ ध्यान दिनुपर्ने कुराहरू</h4>
+        <ul>
+          <li>स्रेस्तामा जग्गाको किसिम 'खेत' भएमा सिंचाइको प्रमाण चाहिने । <span style={lawTag}>(मुलुकी संहिता दफा २)</span></li>
+        </ul>
+      </section>
+    </div>
+  );
 
-  const showServices = async (cat) => {
-    setSelectedMain(cat);
-    const { data } = await supabase.from('services').select('*').eq('category_id', cat.id).eq('status', 'approved');
-    setServices(data || []);
-  };
+  // २. राजश्व विवरण (तपाईंको बुँदा ७)
+  const renderRevenue = () => (
+    <div style={revenueBox}>
+      <h3>राजश्व विवरण हेर्नुहोस्</h3>
+      <select onChange={(e) => setUserPradesh(e.target.value)} style={inputStyle}>
+        <option>प्रदेश छान्नुहोस्</option>
+        <option value="1">कोशी प्रदेश</option>
+        <option value="3">बागमती प्रदेश</option>
+      </select>
 
-  const showDocs = async (sub) => {
-    setSelectedSub(sub);
-    const { data } = await supabase.from('documents').select('*').eq('service_id', sub.id);
-    setDocs(data || []);
-  };
+      <table style={tableStyle}>
+        <thead>
+          <tr style={{background: '#003366', color: '#fff'}}>
+            <th>राजश्व शीर्षक</th>
+            <th>विवरण / दर</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>रजिष्ट्रेशन दस्तुर</td><td>थैलीको ५%</td></tr>
+          <tr><td>लाभकर</td><td>१० लाख माथि भएमा ५%</td></tr>
+        </tbody>
+      </table>
+      <p style={kaifiyatStyle}><strong>कैफियत:</strong> लाभकर १०,००,०० भन्दा माथि थैली भएमा मात्र लाग्छ ।</p>
+    </div>
+  );
 
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif' }}>
-      <header style={{ background: '#003366', color: 'white', padding: '60px 20px', textAlign: 'center' }}>
-        <h1 style={{fontSize: '2.5rem'}}>भूमि प्रशासन सेवा पोर्टल</h1>
-        <p>"यो सहयोगी साइट मात्र हो, आधिकारिक जानकारीको लागि कार्यालयमा सम्पर्क गर्नुहोला।"</p>
-      </header>
+    <div style={{fontFamily: 'Arial'}}>
+      <nav style={navStyle}>
+        <button onClick={() => setActiveTab("services")}>सेवा र कागजात</button>
+        <button onClick={() => setActiveTab("revenue")}>राजश्व विवरण</button>
+        <button onClick={() => setActiveTab("workflow")}>कार्यप्रक्रिया</button>
+      </nav>
 
-      <main style={{ maxWidth: '900px', margin: '40px auto', padding: '20px' }}>
-        {!selectedMain ? (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
-            {categories.map(cat => (
-              <div key={cat.id} onClick={() => showServices(cat)} style={cardStyle}>
-                <h3>{cat.name}</h3>
-                <button style={btnStyle}>विवरण हेर्नुहोस्</button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ background: 'white', padding: '30px', borderRadius: '15px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
-            <button onClick={() => {setSelectedMain(null); setSelectedSub(null);}} style={{ cursor: 'pointer', border: 'none', background: 'none', color: 'blue' }}>← पछाडि</button>
-            <h2 style={{ color: '#003366' }}>{selectedMain.name}</h2>
-            
-            <div style={{ display: 'flex', gap: '10px', margin: '20px 0' }}>
-              {services.map(s => (
-                <button key={s.id} onClick={() => showDocs(s)} style={s.id === selectedSub?.id ? activeBtn : srvBtn}>{s.name}</button>
-              ))}
-            </div>
-
-            {selectedSub && (
-              <div style={{ background: '#f9f9f9', padding: '20px', borderRadius: '10px' }}>
-                <div style={{ marginBottom: '15px' }}>
-                  <label><input type="radio" checked={userType === "personal"} onChange={() => setUserType("personal")} /> व्यक्तिगत</label>
-                  <label style={{ marginLeft: '20px' }}><input type="radio" checked={userType === "institutional"} onChange={() => setUserType("institutional")} /> संस्थागत</label>
-                </div>
-                {docs.filter(d => d.doc_type === 'common' || d.doc_type === userType).map((d, i) => (
-                  <div key={i} title={d.hover_note} onClick={() => d.click_detail && alert(d.click_detail)} style={docStyle}>
-                    📄 {d.name} {d.hover_note && <span style={{fontSize: '11px', color: 'blue'}}>(Info)</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+      <main style={{padding: '20px'}}>
+        {activeTab === "services" && !selectedSub && <h1 style={welcomeStyle}>भूमि प्रशासन पोर्टलमा स्वागत छ</h1>}
+        {activeTab === "services" && (selectedSub ? renderServiceDetail() : renderCategories())}
+        {activeTab === "revenue" && renderRevenue()}
+        {activeTab === "workflow" && <div>कार्यप्रक्रियाको फ्लोचार्ट यहाँ देखिनेछ (बुँदा ८)</div>}
       </main>
     </div>
   );
 }
 
-const cardStyle = { background: 'white', padding: '30px', borderRadius: '10px', textAlign: 'center', cursor: 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' };
-const btnStyle = { background: '#003366', color: 'white', padding: '10px', border: 'none', borderRadius: '5px', cursor: 'pointer' };
-const srvBtn = { padding: '10px 15px', borderRadius: '5px', border: '1px solid #003366', background: 'white', cursor: 'pointer' };
-const activeBtn = { ...srvBtn, background: '#003366', color: 'white' };
-const docStyle = { background: 'white', padding: '15px', marginBottom: '10px', borderRadius: '8px', borderLeft: '5px solid #003366', cursor: 'help' };
+// Styles (नमुनाका लागि केही)
+const navStyle = { background: '#003366', padding: '15px', display: 'flex', gap: '20px', justifyContent: 'center' };
+const subHeadingStyle = { borderBottom: '2px solid #ddd', paddingBottom: '5px', marginTop: '20px', color: '#555' };
+const lawTag = { fontSize: '12px', background: '#eee', padding: '2px 5px', borderRadius: '4px', marginLeft: '10px', color: 'blue', cursor: 'pointer' };
+const tableStyle = { width: '100%', borderCollapse: 'collapse', marginTop: '20px' };
+const kaifiyatStyle = { marginTop: '20px', padding: '15px', background: '#fff3cd', borderRadius: '5px' };
+const welcomeStyle = { textAlign: 'center', margin: '50px 0', color: '#003366' };
