@@ -1,38 +1,34 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { supabase } from '@/utils/supabase';
-import { Trash2, PlusCircle, CheckCircle, XCircle, Info, Settings, FileText, DollarSign, AlertCircle, List } from 'lucide-react';
+import { Trash2, PlusCircle, CheckCircle, XCircle, Settings, FileText, DollarSign, List, AlertCircle, Save } from 'lucide-react';
 
-export default function MasterDashboard() {
+export default function AdminPortal() {
   const [activeTab, setActiveTab] = useState("setup");
-  const [categories, setCategories] = useState([]);
-  const [services, setServices] = useState([]);
-  const [masterDocs, setMasterDocs] = useState([]);
-  const [mappedDocs, setMappedDocs] = useState([]);
-  const [exclusions, setExclusions] = useState([]);
-  const [provinces, setProvinces] = useState([]);
-  const [revTitles, setRevTitles] = useState([]);
-  const [revenueData, setRevenueData] = useState([]);
-
-  const [formData, setFormData] = useState({
-    catId: "", srvName: "", mapType: "category", mapTargetId: "", mapGroup: "आवश्यक कागजात"
-  });
+  const [data, setData] = useState({ categories: [], services: [], mDocs: [], provs: [], rTitles: [] });
+  const [selection, setSelection] = useState({ catId: "", srvId: "", mapType: "category", mapId: "", group: "आवश्यक कागजात" });
+  const [role, setRole] = useState("");
 
   useEffect(() => { fetchAll(); }, []);
 
   const fetchAll = async () => {
-    const { data: cat } = await supabase.from('categories').select('*');
-    const { data: srv } = await supabase.from('services').select('*, categories(name)');
-    const { data: mDoc } = await supabase.from('document_master').select('*');
-    const { data: maps } = await supabase.from('service_document_map').select('*, document_master(*)');
-    const { data: ex } = await supabase.from('document_exceptions').select('*');
-    const { data: prov } = await supabase.from('provinces').select('*');
-    const { data: rTitles } = await supabase.from('revenue_titles').select('*');
-    const { data: rev } = await supabase.from('revenue_details').select('*, services(name), provinces(name), revenue_titles(title)');
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data: prof } = await supabase.from('profiles').select('role').eq('id', user?.id).single();
+    setRole(prof?.role || "viewer");
+    
+    const cats = await supabase.from('categories').select('*');
+    const srvs = await supabase.from('services').select('*, categories(name)');
+    const docs = await supabase.from('document_master').select('*');
+    const provs = await supabase.from('provinces').select('*');
+    const titles = await supabase.from('revenue_titles').select('*');
+    
+    setData({ categories: cats.data, services: srvs.data, mDocs: docs.data, provs: provs.data, rTitles: titles.data });
+  };
 
-    setCategories(cat || []); setServices(srv || []); setMasterDocs(mDoc || []);
-    setMappedDocs(maps || []); setExclusions(ex || []); setProvinces(prov || []);
-    setRevTitles(rTitles || []); setRevenueData(rev || []);
+  const addItem = async (table, payload) => {
+    await supabase.from(table).insert([payload]);
+    fetchAll();
+    alert("सुरक्षित भयो");
   };
 
   const deleteItem = async (table, id) => {
@@ -42,119 +38,76 @@ export default function MasterDashboard() {
     }
   };
 
-  // १. कागजात म्यापिङ (पहिले नै म्याप भएको कागजात लिस्टबाट हराउने लजिक)
-  const availableDocs = masterDocs.filter(doc => {
-    const isAlreadyMapped = mappedDocs.find(m => 
-      m.document_id === doc.id && 
-      (formData.mapType === 'category' ? m.category_id == formData.mapTargetId : m.service_id == formData.mapTargetId)
-    );
-    return !isAlreadyMapped;
-  });
-
-  // २. मुख्य सेवाबाट आएको कागजातलाई 'Untick' गरेर हटाउने (Exclusion Logic)
-  const toggleExclusion = async (docId, serviceId, isExcluded) => {
-    if (isExcluded) {
-      await supabase.from('document_exceptions').delete().eq('document_id', docId).eq('service_id', serviceId);
-    } else {
-      await supabase.from('document_exceptions').insert([{ document_id: docId, service_id: serviceId }]);
-    }
-    fetchAll();
-  };
+  if (role === "viewer") return <div style={{padding: '50px', textAlign: 'center'}}>अनुमति छैन।</div>;
 
   return (
-    <div style={containerStyle}>
-      <header style={headerStyle}>
-        <h2>भूमि प्रशासन सुपर ड्यासबोर्ड</h2>
-        <div style={navStyle}>
-          <button onClick={() => setActiveTab("setup")} style={tabBtn(activeTab==="setup")}><Settings size={16}/> सेटअप</button>
+    <div style={{ padding: '20px', fontFamily: 'sans-serif', background: '#f8fafc', minHeight: '100vh' }}>
+      <header style={{ background: '#003366', color: '#fff', padding: '20px', borderRadius: '10px' }}>
+        <h2>भूमि प्रशासन सुपर एड्मिन प्यानल</h2>
+        <div style={{ display: 'flex', gap: '10px', marginTop: '15px', flexWrap: 'wrap' }}>
+          <button onClick={() => setActiveTab("setup")} style={tabBtn(activeTab==="setup")}><Settings size={16}/> सेवा सेटअप</button>
           <button onClick={() => setActiveTab("docs")} style={tabBtn(activeTab==="docs")}><FileText size={16}/> कागजात व्यवस्थापन</button>
           <button onClick={() => setActiveTab("revenue")} style={tabBtn(activeTab==="revenue")}><DollarSign size={16}/> राजश्व विवरण</button>
+          <button onClick={() => setActiveTab("content")} style={tabBtn(activeTab==="content")}><List size={16}/> कार्यप्रक्रिया र अन्य</button>
         </div>
       </header>
 
       <main style={{marginTop: '20px'}}>
-        {/* सेटअप ट्याब (Edit/Delete सहित) */}
         {activeTab === "setup" && (
           <div style={grid}>
             <div style={card}>
-              <h3>हालका किसिमहरू (Services)</h3>
-              {services.map(s => (
-                <div key={s.id} style={listItem}>
-                  <span>{s.name} <small>({s.categories?.name})</small></span>
-                  <Trash2 size={16} color="red" onClick={() => deleteItem('services', s.id)} style={{cursor:'pointer'}}/>
-                </div>
-              ))}
+              <h3>१. मुख्य सेवा (Category)</h3>
+              <input id="catInp" style={input} placeholder="उदा: लिखत पारित" />
+              <button style={btn} onClick={() => addItem('categories', {name: document.getElementById('catInp').value})}>थप्नुहोस्</button>
+              <div style={listScroll}>
+                {data.categories.map(c => <div key={c.id} style={listItem}>{c.name} <Trash2 size={16} color="red" onClick={() => deleteItem('categories', c.id)}/></div>)}
+              </div>
             </div>
             <div style={card}>
-              <h3>नयाँ किसिम थप्नुहोस्</h3>
-              <select style={input} onChange={e => setFormData({...formData, catId: e.target.value})}>
+              <h3>२. सेवाको किसिम (Service Type)</h3>
+              <select style={input} onChange={e => setSelection({...selection, catId: e.target.value})}>
                 <option value="">मुख्य सेवा छान्नुहोस्</option>
-                {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {data.categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
-              <input style={input} placeholder="उदा: राजिनामा" id="srvInp" />
-              <button style={btn} onClick={async () => {
-                const name = document.getElementById('srvInp').value;
-                await supabase.from('services').insert([{name, category_id: formData.catId, status: 'approved'}]);
-                fetchAll();
-              }}>थप्नुहोस्</button>
+              <input id="srvInp" style={input} placeholder="उदा: राजिनामा" />
+              <button style={btn} onClick={() => addItem('services', {name: document.getElementById('srvInp').value, category_id: selection.catId})}>किसिम थप्नुहोस्</button>
+              <div style={listScroll}>
+                {data.services.map(s => <div key={s.id} style={listItem}>{s.name} ({s.categories?.name}) <Trash2 size={16} color="red" onClick={() => deleteItem('services', s.id)}/></div>)}
+              </div>
             </div>
           </div>
         )}
 
-        {/* कागजात व्यवस्थापन (Tick/Untick र Exclusion) */}
         {activeTab === "docs" && (
           <div style={grid}>
             <div style={card}>
-              <h3>१. म्यापिङ र हटाउने (Mapping)</h3>
-              <div style={{marginBottom: '10px'}}>
-                <label><input type="radio" name="mtype" onClick={() => setFormData({...formData, mapType: 'category'})}/> मुख्य सेवामा</label>
-                <label style={{marginLeft: '10px'}}><input type="radio" name="mtype" onClick={() => setFormData({...formData, mapType: 'service'})}/> किसिममा</label>
+              <h3>१. कागजात मास्टर लिस्ट</h3>
+              <input id="dmName" style={input} placeholder="कागजातको नाम" />
+              <input id="dmHover" style={input} placeholder="होभर विवरण" />
+              <textarea id="dmClick" style={input} placeholder="क्लिक विवरण (कानुन)"></textarea>
+              <button style={btn} onClick={() => addItem('document_master', {name: document.getElementById('dmName').value, hover_note: document.getElementById('dmHover').value, click_detail: document.getElementById('dmClick').value})}>मास्टरमा थप्नुहोस्</button>
+              <div style={listScroll}>
+                {data.mDocs.map(d => <div key={d.id} style={listItem}>{d.name} <Trash2 size={16} color="red" onClick={() => deleteItem('document_master', d.id)}/></div>)}
               </div>
-              <select style={input} onChange={e => setFormData({...formData, mapTargetId: e.target.value})}>
+            </div>
+            <div style={card}>
+              <h3>२. म्यापिङ र अपवाद (Tick/Untick)</h3>
+              <div style={{display:'flex', gap:'10px', marginBottom:'10px'}}>
+                <label><input type="radio" name="mtype" onClick={() => setSelection({...selection, mapType: 'category'})}/> मुख्य सेवा</label>
+                <label><input type="radio" name="mtype" onClick={() => setSelection({...selection, mapType: 'service'})}/> किसिम</label>
+              </div>
+              <select style={input} onChange={e => setSelection({...selection, mapId: e.target.value})}>
                 <option value="">छान्नुहोस्</option>
-                {formData.mapType === 'category' ? categories.map(c => <option value={c.id}>{c.name}</option>) : services.map(s => <option value={s.id}>{s.name}</option>)}
+                {selection.mapType === 'category' ? data.categories.map(c => <option value={c.id}>{c.name}</option>) : data.services.map(s => <option value={s.id}>{s.name}</option>)}
               </select>
-
-              <h4>बाँकी रहेका कागजातहरू (Available):</h4>
-              <div style={scrollBox}>
-                {availableDocs.map(d => (
+              <input style={input} placeholder="ग्रुप (उदा: वारेशनामा भएमा थप)" onChange={e => setSelection({...selection, group: e.target.value})} />
+              <div style={listScroll}>
+                {data.mDocs.map(d => (
                   <div key={d.id} style={listItem}>
-                    {d.name} <PlusCircle size={18} color="blue" onClick={async () => {
-                      await supabase.from('service_document_map').insert([{
-                        document_id: d.id, group_name: formData.mapGroup,
-                        [formData.mapType === 'category' ? 'category_id' : 'service_id']: formData.mapTargetId
-                      }]);
-                      fetchAll();
-                    }} style={{cursor:'pointer'}}/>
+                    {d.name} <PlusCircle color="blue" style={{cursor:'pointer'}} onClick={() => addItem('service_document_map', {document_id: d.id, group_name: selection.group, [selection.mapType === 'category' ? 'category_id' : 'service_id']: selection.mapId})}/>
                   </div>
                 ))}
               </div>
-            </div>
-
-            <div style={card}>
-              <h3>२. हाल छानिएका कागजात र अपवाद (Exclusions)</h3>
-              <p style={{fontSize: '12px'}}>मुख्य सेवाबाट आएका कागजात हटाउन 'Uncheck' गर्नुहोस्।</p>
-              {formData.mapType === 'service' && formData.mapTargetId && (
-                <div>
-                  <h4 style={{color: 'green'}}>मुख्य सेवाबाट प्राप्त (Inherited):</h4>
-                  {mappedDocs.filter(m => m.category_id == services.find(s => s.id == formData.mapTargetId)?.category_id).map(m => {
-                    const isExcluded = exclusions.find(ex => ex.document_id === m.document_id && ex.service_id == formData.mapTargetId);
-                    return (
-                      <div key={m.id} style={listItem}>
-                        <span><input type="checkbox" checked={!isExcluded} onChange={() => toggleExclusion(m.document_id, formData.mapTargetId, isExcluded)} /> {m.document_master?.name}</span>
-                        <small>मुख्य सेवाबाट</small>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-              <h4 style={{marginTop: '20px', color: 'blue'}}>यस किसिमका लागि मात्र थपिएका:</h4>
-              {mappedDocs.filter(m => m.service_id == formData.mapTargetId).map(m => (
-                <div key={m.id} style={listItem}>
-                  {m.document_master?.name}
-                  <Trash2 size={16} color="red" onClick={() => deleteItem('service_document_map', m.id)} style={{cursor:'pointer'}}/>
-                </div>
-              ))}
             </div>
           </div>
         )}
@@ -163,14 +116,10 @@ export default function MasterDashboard() {
   );
 }
 
-// Styles (पहिलेकै जस्तै)
-const containerStyle = { padding: '20px', background: '#f4f7f6', minHeight: '100vh' };
-const headerStyle = { background: '#003366', color: '#fff', padding: '20px', borderRadius: '10px' };
-const navStyle = { display: 'flex', gap: '10px', marginTop: '15px' };
-const tabBtn = (active) => ({ padding: '10px 15px', borderRadius: '5px', border: 'none', cursor: 'pointer', background: active ? '#ffcc00' : '#002244', color: active ? '#000' : '#fff' });
-const grid = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' };
+const tabBtn = (active) => ({ padding: '10px 15px', border: 'none', borderRadius: '5px', cursor: 'pointer', background: active ? '#ffcc00' : '#002244', color: active ? '#000' : '#fff', display:'flex', alignItems:'center', gap:'5px' });
 const card = { background: '#fff', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' };
-const input = { width: '100%', padding: '10px', marginBottom: '10px', borderRadius: '5px', border: '1px solid #ccc' };
+const grid = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' };
+const input = { width: '100%', padding: '10px', marginBottom: '10px', border: '1px solid #ccc', borderRadius: '5px', boxSizing: 'border-box' };
 const btn = { width: '100%', padding: '10px', background: '#003366', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' };
-const listItem = { display: 'flex', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #eee' };
-const scrollBox = { maxHeight: '400px', overflowY: 'auto' };
+const listItem = { display: 'flex', justifyContent: 'space-between', padding: '10px', borderBottom: '1px solid #eee', fontSize: '14px' };
+const listScroll = { maxHeight: '300px', overflowY: 'auto', marginTop: '10px' };
