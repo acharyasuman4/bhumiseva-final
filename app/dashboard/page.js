@@ -118,126 +118,82 @@ export default function AdminDashboard() {
         )}
 
         {/* ६. राजश्व प्रणाली (Matrix View) */}
-// १. स्टेटहरू (States) मा यी थप्नुहोस्
-const [revModal, setRevModal] = useState(null); // कुन सेवा र प्रदेश छानियो
-const [revFormData, setRevFormData] = useState({
-  valuation_amount: "", reg_fee_percent: "", reg_fee_fixed: "",
-  srv_fee_percent: "", srv_fee_fixed: "", is_three_gen: false,
-  delay_fee: "", remarks: "", cgt_option: "तिनपुस्ता भित्र"
-});
-
-// २. राजश्व विवरण सेभ गर्ने फङ्सन
-const saveRevenue = async () => {
-  const { error } = await supabase.from('revenue_details').upsert([{
-    service_id: revModal.srvId,
-    province_id: revModal.provId,
-    ...revFormData
-  }], { onConflict: 'service_id,province_id' });
-
-  if (error) alert(error.message);
-  else {
-    alert("राजश्व विवरण सुरक्षित भयो!");
-    setRevModal(null);
-    fetchAll();
-  }
-};
-
-// ३. UI: राजश्व प्रणाली ट्याब
-{activeTab === "revenue" && (
-  <div style={{ overflowX: 'auto' }}>
-    <h3 style={{ marginBottom: '20px', color: '#003366' }}>राजश्व मेट्रिक्स (सातै प्रदेश)</h3>
-    <table style={matrixTable}>
-      <thead>
-        <tr>
-          <th style={matrixTh}>मुख्य सेवा (किसिम)</th>
-          {data.provs.map(p => (
-            <th key={p.id} style={matrixTh}>{p.name}</th>
-          ))}
-        </tr>
-      </thead>
-      <tbody>
-        {data.srvs.map(s => (
-          <tr key={s.id}>
-            <td style={matrixTd}>
-              <div style={{ fontWeight: 'bold' }}>{s.name}</div>
-              <div style={{ fontSize: '11px', color: '#666' }}>{s.categories?.name}</div>
-            </td>
-            {data.provs.map(p => (
-              <td key={p.id} style={matrixTdCenter}>
-                <button 
-                  onClick={() => setRevModal({ srvName: s.name, catName: s.categories.name, provName: p.name, srvId: s.id, provId: p.id })}
-                  style={addRevBtn}
-                >
-                  थप्नुहोस् / हेर्नुहोस्
-                </button>
-              </td>
-            ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-
-    {/* डाइलग बक्स (Modal) */}
-    {revModal && (
-      <div style={modalOverlay}>
-        <div style={modalContent}>
-          <div style={modalHeader}>
-            <h3>{revModal.catName} ({revModal.srvName}) - {revModal.provName}</h3>
-            <X cursor="pointer" onClick={() => setRevModal(null)} />
+        {activeTab === "revenue" && (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={th}>सेवाको किसिम / प्रदेश</th>
+                  {data.provs.map(p => <th key={p.id} style={th}>{p.name}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {data.srvs.map(s => (
+                  <tr key={s.id}>
+                    <td style={td}><strong>{s.name}</strong> <br/> <small>{s.categories?.name}</small></td>
+                    {data.provs.map(p => (
+                      <td key={p.id} style={{ ...td, textAlign: 'center' }}>
+                        <button 
+                          style={smallBtn} 
+                          onClick={() => setRevForm({ srv: s, prov: p })}
+                        >
+                          विवरण थप्नुहोस्
+                        </button>
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-          
-          <div style={modalBody}>
-            <div style={formGrid}>
-              <div style={field}>
-                <label>थैली अङ्क</label>
-                <input style={input} value={revFormData.valuation_amount} onChange={e => setRevFormData({...revFormData, valuation_amount: e.target.value})} />
-              </div>
-              <div style={field}>
+        )}
+      </main>
+
+      {/* Revenue Modal (बुँदा ६) */}
+      {revForm && (
+        <div style={modalOverlay}>
+          <div style={modalContent}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <h3>{revForm.srv.categories.name} ({revForm.srv.name}) - {revForm.prov.name}</h3>
+              <X cursor="pointer" onClick={() => setRevForm(null)} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px', marginTop: '20px' }}>
+              <div style={formGroup}>
                 <label>रजिष्ट्रेशन दस्तुर (%)</label>
-                <input style={input} type="number" onChange={e => setRevFormData({...revFormData, reg_fee_percent: e.target.value})} />
+                <input style={input} type="number" />
               </div>
-              <div style={field}>
+              <div style={formGroup}>
                 <label>रजिष्ट्रेशन दस्तुर (Fixed)</label>
-                <input style={input} type="number" onChange={e => setRevFormData({...revFormData, reg_fee_fixed: e.target.value})} />
+                <input style={input} type="number" />
               </div>
-              <div style={field}>
+              <div style={formGroup}>
                 <label>सेवा शुल्क (%)</label>
-                <input style={input} type="number" onChange={e => setRevFormData({...revFormData, srv_fee_percent: e.target.value})} />
+                <input style={input} type="number" />
               </div>
-              <div style={field}>
+              <div style={formGroup}>
                 <label>सेवा शुल्क (Fixed)</label>
-                <input style={input} type="number" onChange={e => setRevFormData({...revFormData, srv_fee_fixed: e.target.value})} />
+                <input style={input} type="number" />
               </div>
-              <div style={field}>
+              <div style={{ gridColumn: 'span 2' }}>
+                <label><input type="checkbox" /> तिनपुस्ता आवश्यक छ?</label>
+              </div>
+              <div style={{ gridColumn: 'span 2' }}>
                 <label>विलम्व शुल्क</label>
-                <input style={input} onChange={e => setRevFormData({...revFormData, delay_fee: e.target.value})} />
-              </div>
-              <div style={{ gridColumn: 'span 2' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                  <input type="checkbox" onChange={e => setRevFormData({...revFormData, is_three_gen: e.target.checked})} />
-                  तिनपुस्ता आवश्यक छ?
-                </label>
-              </div>
-              <div style={{ gridColumn: 'span 2' }}>
-                <label>लाभकर विकल्प (Capital Gain)</label>
-                <select style={input} onChange={e => setRevFormData({...revFormData, cgt_option: e.target.value})}>
-                  <option value="तिनपुस्ता भित्र">तिनपुस्ता भित्र</option>
-                  <option value="तिनपुस्ता बाहिर">तिनपुस्ता बाहिर</option>
-                  <option value="छनौट नगर्ने">छनौट नगर्ने</option>
-                </select>
+                <input style={input} />
               </div>
               <div style={{ gridColumn: 'span 2' }}>
                 <label>कैफियत</label>
-                <textarea style={input} rows="3" onChange={e => setRevFormData({...revFormData, remarks: e.target.value})}></textarea>
+                <textarea style={input}></textarea>
               </div>
             </div>
-            <button style={saveFullBtn} onClick={saveRevenue}>सुरक्षित गर्नुहोस्</button>
+            <button style={saveBtn} style={{width:'100%', marginTop:'10px'}}>सुरक्षित गर्नुहोस्</button>
           </div>
         </div>
-      </div>
-    )}
-  </div>
-)}
+      )}
+    </div>
+  );
+}
+
 // --- Styles ---
 const formGrid = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' };
 const input = { padding: '10px', borderRadius: '5px', border: '1px solid #ddd', width: '100%', boxSizing: 'border-box' };
@@ -251,14 +207,3 @@ const smallBtn = { padding: '5px 10px', background: '#e3f2fd', color: '#007bff',
 const modalOverlay = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 };
 const modalContent = { background: '#fff', padding: '30px', borderRadius: '15px', width: '600px', maxHeight: '90vh', overflowY: 'auto' };
 const formGroup = { display: 'flex', flexDirection: 'column', gap: '5px' };
-const matrixTable = { width: '100%', borderCollapse: 'collapse', fontSize: '13px' };
-const matrixTh = { background: '#003366', color: '#fff', padding: '10px', border: '1px solid #ddd', position: 'sticky', top: 0 };
-const matrixTd = { padding: '10px', border: '1px solid #ddd', background: '#fff' };
-const matrixTdCenter = { ...matrixTd, textAlign: 'center' };
-const addRevBtn = { padding: '5px 8px', background: '#e3f2fd', border: '1px solid #2196f3', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', color: '#1976d2' };
-const modalOverlay = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 };
-const modalContent = { background: '#fff', width: '700px', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 10px 30px rgba(0,0,0,0.2)' };
-const modalHeader = { background: '#003366', color: '#fff', padding: '15px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' };
-const modalBody = { padding: '20px' };
-const field = { display: 'flex', flexDirection: 'column', gap: '5px' };
-const saveFullBtn = { width: '100%', padding: '12px', background: '#28a745', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', marginTop: '15px' };
